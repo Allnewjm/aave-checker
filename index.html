@@ -338,6 +338,39 @@ function analyze(pos, selSym) {
   return { sel, selC, selDebtSame, band, borrowMore, borrowMoreCapped, repayToTarget, capHit, levels, currentLtv };
 }
 
+/* ---------------- add-collateral maths (pure) ----------------
+   Extra collateral (USD) needed so that debt / (collateral + extra) = target LTV:
+   extra = debt / targetLtv - collateral. Uses the position totals from Pool.getUserAccountData. */
+/* addcoll:start */
+const LTV_PRESETS = [0.3, 0.4, 0.5, 0.6, 0.7];
+function addCollateralFor(debtUsd, collateralUsd, targetLtv, price) {
+  if (!(debtUsd > 0)) return { status: 'nodebt' };
+  if (!(targetLtv > 0) || !(targetLtv <= 1) || !Number.isFinite(targetLtv)) return { status: 'invalid' };
+  const need = debtUsd / targetLtv - collateralUsd;
+  if (!(need > 0.005)) return { status: 'below', extraUsd: 0, extraAmount: 0, newCollateralUsd: collateralUsd };
+  return { status: 'add', extraUsd: need, extraAmount: price > 0 ? need / price : null, newCollateralUsd: collateralUsd + need };
+}
+function mainCollateral(collaterals) {
+  return collaterals.find(c => c.enabled) || collaterals[0] || null;
+}
+function addCollateralRows(account, mainColl) {
+  const price = mainColl ? mainColl.price : 0;
+  const rows = LTV_PRESETS.map(t => ({ label: Math.round(t * 100) + '%', target: t, ...addCollateralFor(account.totalDebtUsd, account.totalCollateralUsd, t, price) }));
+  if (account.liqThreshold > 0) {
+    const t = account.liqThreshold / TARGET_HF;
+    rows.push({ label: pctLabel(t) + ' (health factor ' + TARGET_HF + ')', target: t, ...addCollateralFor(account.totalDebtUsd, account.totalCollateralUsd, t, price) });
+  }
+  return rows;
+}
+function pctLabel(t) { return (Math.round(t * 1000) / 10) + '%'; }
+function parseLtvInput(text) {
+  const t = String(text == null ? '' : text).trim().replace('%', '').replace(',', '.');
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+  const v = Number(t);
+  return v > 0 && v <= 100 ? v / 100 : null;
+}
+/* addcoll:end */
+
 /* ---------------- QR parsing (pure, no DOM) ----------------
    Accepts plain "0x...", "ethereum:0x...@42161?value=1", "ethereum:pay-0x...",
    EIP-681 token transfers ("ethereum:0xToken/transfer?address=0xRecipient&uint256=1")
@@ -376,7 +409,7 @@ function parseWalletQR(text) {
 }
 
 /* expose for headless tests */
-globalThis.AaveChecker = { parseWalletQR, CHAINS, fetchPosition, analyze, bandFor, priceAtHF, defaultSelected, makeClient };
+globalThis.AaveChecker = { parseWalletQR, CHAINS, fetchPosition, analyze, bandFor, priceAtHF, defaultSelected, makeClient, addCollateralFor, addCollateralRows, mainCollateral, parseLtvInput };
 
 /* ---------------- UI ---------------- */
 if (typeof document !== 'undefined') {
@@ -388,11 +421,30 @@ if (typeof document !== 'undefined') {
   const pct = (n, d = 2) => (n * 100).toFixed(d) + '%';
   const hfTxt = h => h === Infinity ? 'No debt' : h > 99 ? '99+' : h.toFixed(2);
 
-  let state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: 0 };
+  let state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: 0, customLtv: '' };
 
   function renderBands(currentKey) {
     $('bandsList').innerHTML = BANDS.map(b =>
       `<li class="${b.key === currentKey ? 'now' : ''}"><span class="badge ${b.cls}">${esc(b.range)}</span><span>${esc(b.label)}: ${esc(b.text)}${b.key === currentKey ? ' (you are here)' : ''}</span></li>`).join('');
+  }
+
+  function addRowHtml(r, main) {
+    if (r.status === 'add') return `<tr><td>${esc(r.label)}</td><td>${usd(r.extraUsd)}</td><td>${r.extraAmount != null && main ? amt(r.extraAmount) + ' ' + esc(main.symbol) : 'n/a'}</td><td>${usd(r.newCollateralUsd)}</td></tr>`;
+    if (r.status === 'below') return `<tr><td>${esc(r.label)}</td><td colspan="3">Already below this level, nothing to add</td></tr>`;
+    return `<tr><td>${esc(r.label)}</td><td colspan="3">Not available</td></tr>`;
+  }
+  function customHtml(a, main) {
+    const t = parseLtvInput(state.customLtv);
+    if (!String(state.customLtv).trim()) return '<span class="small">Type a target to see the amount.</span>';
+    if (t == null) return '<span class="small">Enter a number above 0 and up to 100.</span>';
+    const r = addCollateralFor(a.totalDebtUsd, a.totalCollateralUsd, t, main ? main.price : 0);
+    if (r.status === 'below') return `<strong>Already below ${esc(pctLabel(t))}.</strong> Nothing to add.`;
+    if (r.status !== 'add') return '<span class="small">Not available.</span>';
+    return `Add about <strong>${usd(r.extraUsd)}</strong>${r.extraAmount != null && main ? ' (about <strong>' + amt(r.extraAmount) + ' ' + esc(main.symbol) + '</strong>)' : ''} to reach ${esc(pctLabel(t))}. New collateral total: ${usd(r.newCollateralUsd)}.`;
+  }
+  function renderCustom() {
+    const el = document.getElementById('customOut');
+    if (el && state.pos) el.innerHTML = customHtml(state.pos.account, mainCollateral(state.pos.collaterals));
   }
 
   function render() {
@@ -437,6 +489,18 @@ if (typeof document !== 'undefined') {
       if (body) html += `<div class="card"><h2>Borrow room and gains</h2>${body}</div>`;
     }
 
+    // Add collateral card
+    if (a.totalDebtUsd > 0) {
+      const main = mainCollateral(pos.collaterals);
+      const rows = addCollateralRows(a, main).map(r => addRowHtml(r, main)).join('');
+      html += `<div class="card"><h2>Collateral to add for a target loan to value</h2>
+        <p class="small" style="margin:0 0 10px">Your loan to value is now <strong>${pct(an.currentLtv, 1)}</strong>. This shows how much collateral you would add to bring it down to each level.</p>
+        <div class="tablewrap"><table><thead><tr><th>Target loan to value</th><th>Add (USD)</th><th>${main ? 'Add (' + esc(main.symbol) + ')' : 'Add (asset)'}</th><th>New collateral</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="row"><label class="small" for="customLtv">Your own target (%):</label><input id="customLtv" type="text" inputmode="decimal" autocomplete="off" placeholder="for example 45" value="${esc(state.customLtv)}" style="width:110px" aria-label="Custom target loan to value in percent"></div>
+        <p id="customOut" style="margin:8px 0 0" aria-live="polite"></p>
+        <p class="small" style="margin:10px 0 0">Formula: debt divided by target, minus your current collateral. ${main ? 'The ' + esc(main.symbol) + ' amount uses its current Aave oracle price (' + usdP(main.price) + '), and your largest supplied asset is used.' : ''} The health factor row uses your weighted liquidation threshold (${pct(a.liqThreshold, 1)}) divided by ${TARGET_HF}. Adding a different asset, or price moves, will change the exact amount.</p></div>`;
+    }
+
     // Liquidation card
     const liveColl = pos.collaterals.filter(c => c.enabled);
     if (a.totalDebtUsd > 0 && liveColl.length) {
@@ -474,7 +538,15 @@ if (typeof document !== 'undefined') {
         pos.debts.map(d => `<tr><td>${esc(d.symbol)}</td><td>${amt(d.amount)}</td><td>${usd(d.usd)}</td><td>${usdP(d.price)}</td><td>${d.stableShare ? 'Stable debt' : pct(d.borrowApy)}</td></tr>`).join('') +
         `</tbody></table></div><p class="small" style="margin:10px 0 0">Borrow APY is the current variable rate, which can change any time. Amounts include interest accrued so far.</p></div>`;
     }
+    const ae = document.activeElement;
+    const keep = ae && ae.id === 'customLtv' ? { a: ae.selectionStart, b: ae.selectionEnd } : null;
     $('out').innerHTML = html;
+    const cl = $('customLtv');
+    if (cl) {
+      cl.addEventListener('input', e => { state.customLtv = e.target.value; renderCustom(); });
+      if (keep) { cl.focus(); try { cl.setSelectionRange(keep.a, keep.b); } catch (e) {} }
+    }
+    renderCustom();
     const s = $('selcoll');
     if (s) s.addEventListener('change', e => { state.selSym = e.target.value; render(); });
   }
@@ -518,7 +590,7 @@ if (typeof document !== 'undefined') {
     state.gen += 1;
     clearInterval(state.timer);
     stopScan();
-    state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: state.gen };
+    state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: state.gen, customLtv: '' };
     $('addr').value = '';
     $('out').innerHTML = '';
     showError('');
