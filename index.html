@@ -96,8 +96,10 @@ a{color:var(--accent)}
     <div class="row">
       <button id="share" type="button" class="ghost hidden">Copy share link</button>
       <button id="notif" type="button" class="ghost hidden">Turn on alerts</button>
+      <button id="clear" type="button" class="ghost">Clear</button>
       <span id="status" class="small"></span>
     </div>
+    <p class="small" style="margin:10px 0 0">Nothing is saved on a server. Clear removes it from this browser. Your browser history may still show the link.</p>
     <div id="scanCard" class="hidden" role="region" aria-label="QR scanner">
       <video id="scanVideo" playsinline muted></video>
       <p id="scanMsg" class="small" aria-live="polite"></p>
@@ -386,7 +388,7 @@ if (typeof document !== 'undefined') {
   const pct = (n, d = 2) => (n * 100).toFixed(d) + '%';
   const hfTxt = h => h === Infinity ? 'No debt' : h > 99 ? '99+' : h.toFixed(2);
 
-  let state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '' };
+  let state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: 0 };
 
   function renderBands(currentKey) {
     $('bandsList').innerHTML = BANDS.map(b =>
@@ -486,10 +488,12 @@ if (typeof document !== 'undefined') {
     const chainKey = $('chain').value;
     if (!isAddress(addrRaw, { strict: false })) { showError('That does not look like a valid 0x wallet address. It should be 42 characters starting with 0x.'); return; }
     showError('');
+    const gen = state.gen;
     state.loading = true; $('go').disabled = true;
     setStatus('Reading Aave on ' + CHAINS[chainKey].name + '...', true);
     try {
       const pos = await fetchPosition(chainKey, addrRaw);
+      if (gen !== state.gen) return; // Clear was pressed while loading
       const sig = chainKey + ':' + pos.user.toLowerCase();
       if (sig !== state.sig) { state.selSym = null; state.prevBand = null; state.sig = sig; }
       state.pos = pos;
@@ -500,12 +504,36 @@ if (typeof document !== 'undefined') {
       try { history.replaceState(null, '', u); } catch (e) {}
       startTimer();
     } catch (e) {
+      if (gen !== state.gen) return;
       console.error(e);
       showError('Could not read the loan. The public network connection may be busy, so try again in a moment. (' + String(e.shortMessage || e.message || e).slice(0, 160) + ')');
       setStatus('', false);
     } finally {
-      state.loading = false; $('go').disabled = false;
+      if (gen === state.gen) { state.loading = false; $('go').disabled = false; }
     }
+  }
+
+  /* Clear: forget the address and everything shown for it, in this browser */
+  function clearAll() {
+    state.gen += 1;
+    clearInterval(state.timer);
+    stopScan();
+    state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: state.gen };
+    $('addr').value = '';
+    $('out').innerHTML = '';
+    showError('');
+    setStatus('', false);
+    $('go').disabled = false;
+    $('share').classList.add('hidden'); $('share').textContent = 'Copy share link';
+    $('notif').classList.add('hidden');
+    renderBands(null);
+    try {
+      const u = new URL(location.href); u.searchParams.delete('address'); u.searchParams.delete('chain');
+      history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    } catch (e) {}
+    try { localStorage.clear(); } catch (e) {}
+    try { sessionStorage.clear(); } catch (e) {}
+    setStatus('Cleared.', false);
   }
 
   function startTimer() {
@@ -549,7 +577,7 @@ if (typeof document !== 'undefined') {
   /* ---------------- QR scanner (camera stays on this device, nothing is uploaded) ---------------- */
   const JSQR_URL = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
   const JSQR_SRI = 'sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx';
-  const scan = { stream: null, running: false, detector: null, canvas: null, raf: 0, lastTick: 0 };
+  const scan = { stream: null, running: false, detector: null, canvas: null, raf: 0, lastTick: 0, token: 0 };
   function loadJsQR() {
     if (window.jsQR) return Promise.resolve(window.jsQR);
     return new Promise((resolve, reject) => {
@@ -562,6 +590,7 @@ if (typeof document !== 'undefined') {
   }
   function scanMsg(msg, bad) { const m = $('scanMsg'); m.textContent = msg; m.classList.toggle('bad', !!bad); }
   function stopScan() {
+    scan.token += 1;
     scan.running = false;
     cancelAnimationFrame(scan.raf);
     if (scan.stream) { scan.stream.getTracks().forEach(t => t.stop()); scan.stream = null; }
@@ -579,8 +608,11 @@ if (typeof document !== 'undefined') {
       scanMsg('This browser cannot open the camera here. Paste the address instead, or open this page in Safari or Chrome.', true);
       return;
     }
+    const token = scan.token;
     try {
-      scan.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      if (token !== scan.token) { st.getTracks().forEach(t => t.stop()); return; } // stopped or cleared while the permission prompt was open
+      scan.stream = st;
     } catch (e) {
       const n = e && e.name;
       if (n === 'NotAllowedError' || n === 'SecurityError') scanMsg('Camera access was blocked. Allow the camera for this site in your browser settings, then tap Scan QR again. You can also paste the address.', true);
@@ -623,6 +655,7 @@ if (typeof document !== 'undefined') {
       scanMsg('The scanner could not load. Check your connection, or paste the address instead.', true);
       return;
     }
+    if (token !== scan.token) return;
     scan.running = true;
     scanMsg('Point the camera at the wallet QR code.');
     const loop = async (ts) => {
@@ -650,6 +683,7 @@ if (typeof document !== 'undefined') {
     setStatus('Address scanned.', false);
     load(true);
   }
+  $('clear').addEventListener('click', clearAll);
   $('scan').addEventListener('click', startScan);
   $('scanCancel').addEventListener('click', () => { stopScan(); setStatus('', false); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && scan.running) stopScan(); });
