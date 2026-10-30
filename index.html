@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aave Loan Checker</title>
+<meta name="description" content="Paste a public wallet address to see its Aave V3 loan, health factor and liquidation price. Read-only.">
+<style>
+:root{
+  --bg:#f5f6fa;--card:#fff;--text:#161a2b;--muted:#5d6580;--line:#e2e5ef;--accent:#5b4fe8;
+  --green:#12875a;--greenbg:#e3f6ed;--yellow:#9a6a00;--yellowbg:#fff3d1;--orange:#b44a00;--orangebg:#ffe6d1;
+  --red:#b3202f;--redbg:#fde3e6;--blue:#1b5fb8;--bluebg:#e0edff;--gray:#5d6580;--graybg:#eceef5;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1220;--card:#181c30;--text:#eef0fa;--muted:#9aa2c2;--line:#2a3050;--accent:#8c82ff;
+  --green:#4fd69b;--greenbg:#12372a;--yellow:#f5c452;--yellowbg:#3a2f0e;--orange:#ff9a55;--orangebg:#3b2210;
+  --red:#ff7b88;--redbg:#40161c;--blue:#7db4ff;--bluebg:#14284a;--gray:#9aa2c2;--graybg:#232843;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.5rem;margin:0 0 4px}
+h2{font-size:1.05rem;margin:0 0 10px}
+.sub{color:var(--muted);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+form{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:640px){form{grid-template-columns:1fr 170px auto}}
+input,select,button{font:inherit;border-radius:10px;border:1px solid var(--line);padding:11px 12px;background:var(--card);color:var(--text);min-width:0;width:100%}
+button{background:var(--accent);color:#fff;border-color:var(--accent);cursor:pointer;font-weight:600;width:auto}
+button.ghost{background:transparent;color:var(--text);border-color:var(--line);font-weight:500}
+button:disabled{opacity:.6;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.small{font-size:.85rem;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:640px){.grid{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--bg);border-radius:10px;padding:10px 12px}
+.stat .k{font-size:.78rem;color:var(--muted)}
+.stat .v{font-size:1.15rem;font-weight:650;word-break:break-word}
+.hf{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.hfnum{font-size:2.6rem;font-weight:750;line-height:1}
+.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:650;font-size:.9rem}
+.b-green{background:var(--greenbg);color:var(--green)}
+.b-yellow{background:var(--yellowbg);color:var(--yellow)}
+.b-orange{background:var(--orangebg);color:var(--orange)}
+.b-red{background:var(--redbg);color:var(--red)}
+.b-blue{background:var(--bluebg);color:var(--blue)}
+.b-gray{background:var(--graybg);color:var(--gray)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:right;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:.8rem}
+tr:last-child td{border-bottom:none}
+.err{background:var(--redbg);color:var(--red);padding:12px;border-radius:10px;margin-bottom:14px}
+.note{background:var(--bluebg);color:var(--blue);padding:10px 12px;border-radius:10px;margin-top:10px;font-size:.9rem}
+.hidden{display:none}
+.bands{list-style:none;margin:0;padding:0}
+.bands li{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.bands li:last-child{border-bottom:none}
+.bands .badge{min-width:92px;text-align:center}
+.bands li.now{font-weight:650}
+footer{color:var(--muted);font-size:.85rem;text-align:center;margin-top:24px}
+code{background:var(--graybg);padding:1px 5px;border-radius:5px;font-size:.85em}
+a{color:var(--accent)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Aave Loan Checker</h1>
+  <p class="sub">Paste a public wallet address to see its Aave V3 loan, health factor and liquidation price. Works for any address, nothing to install.</p>
+
+  <div class="card">
+    <form id="form" autocomplete="off">
+      <input id="addr" type="text" inputmode="text" placeholder="Public wallet address (0x...)" spellcheck="false" aria-label="Public wallet address" required>
+      <select id="chain" aria-label="Network">
+        <option value="arbitrum">Arbitrum</option>
+        <option value="ethereum">Ethereum</option>
+        <option value="base">Base</option>
+        <option value="optimism">Optimism</option>
+        <option value="polygon">Polygon</option>
+      </select>
+      <button id="go" type="submit">Check loan</button>
+    </form>
+    <div class="row">
+      <button id="share" type="button" class="ghost hidden">Copy share link</button>
+      <button id="notif" type="button" class="ghost hidden">Turn on alerts</button>
+      <span id="status" class="small"></span>
+    </div>
+    <p class="small" style="margin:10px 0 0">Tip: if your loan is held by a Safe or smart wallet, paste that contract address, not the owner wallet. You can also share a link like <code>?address=0x...&amp;chain=base</code>.</p>
+  </div>
+
+  <div id="error" class="err hidden"></div>
+  <div id="out"></div>
+
+  <div class="card" id="bandsCard">
+    <h2>What the health factor means</h2>
+    <ul class="bands" id="bandsList"></ul>
+    <p class="small" style="margin:10px 0 0">Health factor is your collateral (weighted by each asset's liquidation threshold) divided by your debt. Below 1.0 your collateral can be liquidated.</p>
+  </div>
+
+  <footer>
+    <p><strong>Read-only.</strong> This page never asks for a seed phrase or private key and never sends a transaction. It only reads public blockchain data.</p>
+    <p>Not financial advice. Numbers are estimates from on-chain data and can change quickly. Always check the official Aave app before acting.</p>
+  </footer>
+</div>
+
+<script type="module">
+import { createPublicClient, http, fallback, parseAbi, isAddress, getAddress, formatUnits } from 'https://esm.sh/viem@2.57.13';
+import { mainnet, arbitrum, base, optimism, polygon } from 'https://esm.sh/viem@2.57.13/chains';
+
+/* ---------------------------------------------------------------
+   Contract addresses: Aave Address Book (bgd-labs/aave-address-book),
+   files src/AaveV3Ethereum.sol, AaveV3Arbitrum.sol, AaveV3Base.sol,
+   AaveV3Optimism.sol, AaveV3Polygon.sol. Core "Aave V3" market on each chain.
+   --------------------------------------------------------------- */
+const CHAINS = {
+  arbitrum: {
+    name: 'Arbitrum', chain: arbitrum,
+    rpcs: ['https://arbitrum-one-rpc.publicnode.com', 'https://arbitrum.drpc.org', 'https://arb1.arbitrum.io/rpc'],
+    pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+    dataProvider: '0x243Aa95cAC2a25651eda86e80bEe66114413c43b',
+    oracle: '0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7'
+  },
+  ethereum: {
+    name: 'Ethereum', chain: mainnet,
+    rpcs: ['https://ethereum-rpc.publicnode.com', 'https://eth.drpc.org'],
+    pool: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
+    dataProvider: '0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD',
+    oracle: '0x54586bE62E3c3580375aE3723C145253060Ca0C2'
+  },
+  base: {
+    name: 'Base', chain: base,
+    rpcs: ['https://base-rpc.publicnode.com', 'https://base.drpc.org', 'https://mainnet.base.org'],
+    pool: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5',
+    dataProvider: '0x0F43731EB8d45A581f4a36DD74F5f358bc90C73A',
+    oracle: '0x2Cc0Fc26eD4563A5ce5e8bdcfe1A2878676Ae156'
+  },
+  optimism: {
+    name: 'Optimism', chain: optimism,
+    rpcs: ['https://optimism-rpc.publicnode.com', 'https://optimism.drpc.org', 'https://mainnet.optimism.io'],
+    pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+    dataProvider: '0x243Aa95cAC2a25651eda86e80bEe66114413c43b',
+    oracle: '0xD81eb3728a631871a7eBBaD631b5f424909f0c77'
+  },
+  polygon: {
+    name: 'Polygon', chain: polygon,
+    rpcs: ['https://polygon-bor-rpc.publicnode.com', 'https://polygon.drpc.org'],
+    pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+    dataProvider: '0x243Aa95cAC2a25651eda86e80bEe66114413c43b',
+    oracle: '0xb023e699F5a33916Ea823A16485e259257cA8Bd1'
+  }
+};
+
+const poolAbi = parseAbi([
+  'function getUserAccountData(address user) view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)',
+  'function getUserEMode(address user) view returns (uint256)'
+]);
+const dpAbi = parseAbi([
+  'function getAllReservesTokens() view returns ((string symbol, address tokenAddress)[])',
+  'function getUserReserveData(address asset, address user) view returns (uint256 currentATokenBalance, uint256 currentStableDebt, uint256 currentVariableDebt, uint256 principalStableDebt, uint256 scaledVariableDebt, uint256 stableBorrowRate, uint256 liquidityRate, uint40 stableRateLastUpdated, bool usageAsCollateralEnabled)',
+  'function getReserveData(address asset) view returns (uint256 unbacked, uint256 accruedToTreasuryScaled, uint256 totalAToken, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 averageStableBorrowRate, uint256 liquidityIndex, uint256 variableBorrowIndex, uint40 lastUpdateTimestamp)',
+  'function getReserveConfigurationData(address asset) view returns (uint256 decimals, uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen)'
+]);
+const oracleAbi = parseAbi([
+  'function getAssetsPrices(address[] assets) view returns (uint256[])'
+]);
+
+const MAX_UINT = (1n << 256n) - 1n;
+const TARGET_HF = 2.2;
+const BANDS = [
+  { key: 'room',   min: 2.6, label: 'Room to borrow or take gains', cls: 'b-blue',   range: 'Above 2.6',  text: 'Very healthy. You could borrow more, or lock in gains.' },
+  { key: 'safe',   min: 1.8, label: 'Safe',                         cls: 'b-green',  range: 'Above 1.8',  text: 'Comfortable cushion.' },
+  { key: 'warn',   min: 1.5, label: 'Warning',                      cls: 'b-yellow', range: '1.8 or below', text: 'Keep a close eye on it.' },
+  { key: 'urgent', min: 1.3, label: 'Urgent',                       cls: 'b-orange', range: '1.5 or below', text: 'Add collateral or repay soon.' },
+  { key: 'act',    min: 1.0, label: 'Act now',                      cls: 'b-red',    range: '1.3 or below', text: 'Add collateral or repay right away.' },
+  { key: 'liq',    min: -1,  label: 'Liquidatable',                 cls: 'b-red',    range: 'Below 1.0',  text: 'Collateral can be liquidated now.' }
+];
+const STABLES = new Set(['USDC','USDC.E','USDT','DAI','GHO','USDE','FRAX','LUSD','USDBC','EURS','EURC','CRVUSD','PYUSD','USDS','AUSD','MAI','MIMATIC','USDT0','SUSDS','SDAI','RLUSD','EURE','JEUR','AGEUR','USDX','FDUSD','TUSD','USDP','BUSD','USDCE','USDC.N','XSGD']);
+
+/* ---------------- pure helpers ---------------- */
+function bandFor(hf) {
+  if (hf === Infinity) return { key: 'nodebt', label: 'No debt', cls: 'b-gray', text: 'Nothing borrowed, so nothing to liquidate.' };
+  if (hf < 1.0) return BANDS[5];
+  if (hf <= 1.3) return BANDS[4];
+  if (hf <= 1.5) return BANDS[3];
+  if (hf <= 1.8) return BANDS[2];
+  if (hf <= 2.6) return BANDS[1];
+  return BANDS[0];
+}
+const BAND_ORDER = ['liq','act','urgent','warn','safe','room','nodebt'];
+function rayToApy(ray) {
+  const apr = Number(ray) / 1e27;
+  const n = 31536000;
+  return Math.pow(1 + apr / n, n) - 1;
+}
+function isStable(sym) { return STABLES.has(String(sym).toUpperCase()); }
+
+/* ---------------- on-chain reads ---------------- */
+function makeClient(cfg) {
+  return createPublicClient({
+    chain: cfg.chain,
+    transport: fallback(cfg.rpcs.map(u => http(u, { timeout: 15000, retryCount: 1 })), { rank: false }),
+    batch: { multicall: true }
+  });
+}
+
+async function fetchPosition(chainKey, userAddr, clientOverride) {
+  const cfg = CHAINS[chainKey];
+  const client = clientOverride || makeClient(cfg);
+  const user = getAddress(userAddr);
+
+  // Step 1: account totals, e-mode and the list of reserves
+  const [acct, emode, reserves] = await Promise.all([
+    client.readContract({ address: cfg.pool, abi: poolAbi, functionName: 'getUserAccountData', args: [user] }),
+    client.readContract({ address: cfg.pool, abi: poolAbi, functionName: 'getUserEMode', args: [user] }).catch(() => 0n),
+    client.readContract({ address: cfg.dataProvider, abi: dpAbi, functionName: 'getAllReservesTokens' })
+  ]);
+  const account = {
+    totalCollateralUsd: Number(acct[0]) / 1e8,
+    totalDebtUsd: Number(acct[1]) / 1e8,
+    availableBorrowsUsd: Number(acct[2]) / 1e8,
+    liqThreshold: Number(acct[3]) / 1e4,
+    ltv: Number(acct[4]) / 1e4,
+    hf: acct[5] === MAX_UINT ? Infinity : Number(formatUnits(acct[5], 18))
+  };
+
+  // Step 2: the user's balance in every reserve
+  const userData = await client.multicall({
+    allowFailure: false,
+    contracts: reserves.map(r => ({ address: cfg.dataProvider, abi: dpAbi, functionName: 'getUserReserveData', args: [r.tokenAddress, user] }))
+  });
+  const active = [];
+  reserves.forEach((r, i) => {
+    const d = userData[i];
+    const aBal = d[0], debt = d[1] + d[2];
+    if (aBal > 0n || debt > 0n) active.push({ sym: r.symbol, addr: r.tokenAddress, aBal, vDebt: d[2], sDebt: d[1], collEnabled: d[8] });
+  });
+
+  // Step 3: details only for the assets this user touches
+  let prices = [], cfgs = [], rds = [];
+  if (active.length) {
+    const addrs = active.map(a => a.addr);
+    [prices, cfgs, rds] = await Promise.all([
+      client.readContract({ address: cfg.oracle, abi: oracleAbi, functionName: 'getAssetsPrices', args: [addrs] }),
+      client.multicall({ allowFailure: false, contracts: addrs.map(a => ({ address: cfg.dataProvider, abi: dpAbi, functionName: 'getReserveConfigurationData', args: [a] })) }),
+      client.multicall({ allowFailure: false, contracts: addrs.map(a => ({ address: cfg.dataProvider, abi: dpAbi, functionName: 'getReserveData', args: [a] })) })
+    ]);
+  }
+  const collaterals = [], debts = [];
+  active.forEach((a, i) => {
+    const dec = Number(cfgs[i][0]);
+    const price = Number(prices[i]) / 1e8;
+    const base = { symbol: a.sym, address: a.addr, price, decimals: dec };
+    if (a.aBal > 0n) {
+      const amount = Number(formatUnits(a.aBal, dec));
+      collaterals.push({ ...base, amount, usd: amount * price,
+        ltv: Number(cfgs[i][1]) / 1e4, lt: Number(cfgs[i][2]) / 1e4,
+        enabled: a.collEnabled && Number(cfgs[i][2]) > 0, supplyApy: rayToApy(rds[i][5]) });
+    }
+    const dAmt = a.vDebt + a.sDebt;
+    if (dAmt > 0n) {
+      const amount = Number(formatUnits(dAmt, dec));
+      debts.push({ ...base, amount, usd: amount * price, borrowApy: rayToApy(rds[i][6]), stableShare: a.sDebt > 0n });
+    }
+  });
+  collaterals.sort((x, y) => y.usd - x.usd);
+  debts.sort((x, y) => y.usd - x.usd);
+  const block = await client.getBlockNumber().catch(() => null);
+  return { chainKey, chainName: cfg.name, user, account, emode: Number(emode), collaterals, debts, block, fetchedAt: Date.now() };
+}
+
+/* ---------------- analysis (pure maths) ---------------- */
+function defaultSelected(collaterals) {
+  const live = collaterals.filter(c => c.enabled);
+  const vol = live.filter(c => !isStable(c.symbol));
+  return (vol[0] || live[0] || {}).symbol || null;
+}
+
+function priceAtHF(h, pos, selSym) {
+  // Price of the selected collateral that would bring HF down to h, others held constant.
+  const { account, collaterals, debts, emode } = pos;
+  const sel = collaterals.find(c => c.symbol === selSym);
+  if (!sel || !sel.enabled || account.totalDebtUsd <= 0) return { status: 'none' };
+  const weightedTotal = account.totalCollateralUsd * account.liqThreshold;
+  const ltSel = emode ? account.liqThreshold : sel.lt;
+  const selW = sel.usd * ltSel;
+  const otherW = Math.max(weightedTotal - selW, 0);
+  const dSel = (debts.find(d => d.symbol === selSym) || { usd: 0 }).usd;
+  const debtOther = Math.max(account.totalDebtUsd - dSel, 0);
+  if (account.hf <= h) return { status: 'already' };
+  const denom = selW - h * dSel;
+  const deriv = selW * debtOther - otherW * dSel; // sign of dHF/dprice
+  if (denom === 0 || deriv <= 0) return { status: 'unreachable' };
+  const x = (h * debtOther - otherW) / denom;
+  if (!(x > 0) || !(x < 1)) return { status: 'unreachable' };
+  return { status: 'ok', price: sel.price * x, dropPct: (1 - x) * 100 };
+}
+
+function analyze(pos, selSym) {
+  const a = pos.account;
+  const sel = selSym || defaultSelected(pos.collaterals);
+  const band = bandFor(a.hf);
+  const weighted = a.totalCollateralUsd * a.liqThreshold;
+  let borrowMore = 0, borrowMoreCapped = 0, repayToTarget = 0, capHit = false;
+  if (a.totalCollateralUsd > 0) {
+    const targetDebt = weighted / TARGET_HF;
+    if (a.totalDebtUsd < targetDebt) {
+      borrowMore = targetDebt - a.totalDebtUsd;
+      borrowMoreCapped = Math.min(borrowMore, a.availableBorrowsUsd);
+      capHit = borrowMoreCapped < borrowMore;
+    } else {
+      repayToTarget = a.totalDebtUsd - targetDebt;
+    }
+  }
+  const levels = [1.8, 1.5, 1.3, 1.0].map(h => ({ h, ...priceAtHF(h, pos, sel) }));
+  const selC = pos.collaterals.find(c => c.symbol === sel) || null;
+  const selDebtSame = pos.debts.some(d => d.symbol === sel);
+  const currentLtv = a.totalCollateralUsd > 0 ? a.totalDebtUsd / a.totalCollateralUsd : 0;
+  return { sel, selC, selDebtSame, band, borrowMore, borrowMoreCapped, repayToTarget, capHit, levels, currentLtv };
+}
+
+/* expose for headless tests */
+globalThis.AaveChecker = { CHAINS, fetchPosition, analyze, bandFor, priceAtHF, defaultSelected, makeClient };
+
+/* ---------------- UI ---------------- */
+if (typeof document !== 'undefined') {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const usd = n => '$' + (n >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : n.toLocaleString('en-US', { maximumFractionDigits: 2 }));
+  const usdP = n => '$' + (n >= 100 ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : n >= 1 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : n.toLocaleString('en-US', { maximumFractionDigits: 6 }));
+  const amt = n => n.toLocaleString('en-US', { maximumFractionDigits: n >= 1000 ? 2 : n >= 1 ? 4 : 6 });
+  const pct = (n, d = 2) => (n * 100).toFixed(d) + '%';
+  const hfTxt = h => h === Infinity ? 'No debt' : h > 99 ? '99+' : h.toFixed(2);
+
+  let state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '' };
+
+  function renderBands(currentKey) {
+    $('bandsList').innerHTML = BANDS.map(b =>
+      `<li class="${b.key === currentKey ? 'now' : ''}"><span class="badge ${b.cls}">${esc(b.range)}</span><span>${esc(b.label)}: ${esc(b.text)}${b.key === currentKey ? ' (you are here)' : ''}</span></li>`).join('');
+  }
+
+  function render() {
+    const pos = state.pos;
+    if (!pos) return;
+    const an = analyze(pos, state.selSym);
+    state.selSym = an.sel;
+    const a = pos.account;
+    renderBands(an.band.key);
+    const hasPos = pos.collaterals.length || pos.debts.length;
+    if (!hasPos) {
+      $('out').innerHTML = `<div class="card"><h2>No Aave V3 position found</h2><p>This address has nothing supplied or borrowed on Aave V3 ${esc(pos.chainName)}. Check the network, or the address (loans held by a Safe live at the Safe's address).</p></div>`;
+      return;
+    }
+    let html = '';
+    html += `<div class="card"><div class="hf"><div><div class="small">Health factor</div><div class="hfnum">${hfTxt(a.hf)}</div></div>
+      <div><span class="badge ${an.band.cls}">${esc(an.band.label)}</span><div class="small" style="margin-top:6px">${esc(an.band.text)}</div></div></div>
+      <div class="grid" style="margin-top:14px">
+        <div class="stat"><div class="k">Total collateral</div><div class="v">${usd(a.totalCollateralUsd)}</div></div>
+        <div class="stat"><div class="k">Total debt</div><div class="v">${usd(a.totalDebtUsd)}</div></div>
+        <div class="stat"><div class="k">Current loan to value</div><div class="v">${pct(an.currentLtv, 1)}</div></div>
+        <div class="stat"><div class="k">Liquidation threshold</div><div class="v">${pct(a.liqThreshold, 1)}</div></div>
+        <div class="stat"><div class="k">Max LTV</div><div class="v">${pct(a.ltv, 1)}</div></div>
+        <div class="stat"><div class="k">Aave borrow room</div><div class="v">${usd(a.availableBorrowsUsd)}</div></div>
+        <div class="stat"><div class="k">Network</div><div class="v">${esc(pos.chainName)}</div></div>
+        <div class="stat"><div class="k">Efficiency mode</div><div class="v">${pos.emode ? 'On (category ' + pos.emode + ')' : 'Off'}</div></div>
+      </div>
+      ${pos.emode ? '<div class="note">Efficiency mode is on, so Aave uses special LTV and liquidation values for this loan. The per-asset numbers below are the standard ones, but the totals above are exact.</div>' : ''}
+    </div>`;
+
+    // Room / action card
+    if (a.totalDebtUsd > 0 || a.totalCollateralUsd > 0) {
+      let body = '';
+      if (an.borrowMore > 0) {
+        const room = a.hf > 2.6;
+        body += `<p style="margin:0 0 6px"><strong>${room ? 'Room to borrow or take gains.' : 'Room above the 2.2 target.'}</strong> You could borrow about <strong>${usd(an.borrowMoreCapped)}</strong> more and still sit at a health factor of ${TARGET_HF}.</p>`;
+        if (an.capHit) body += `<p class="small" style="margin:0 0 6px">Your exact math allows ${usd(an.borrowMore)}, but Aave's own borrow limit (LTV) caps it at ${usd(an.borrowMoreCapped)}.</p>`;
+        body += `<p class="small" style="margin:0">Another way to use the room: sell a slice of the collateral to lock in gains and repay debt. Borrowing more means more debt riding on prices, so a sharp drop hurts more.</p>`;
+      } else if (a.totalDebtUsd > 0) {
+        body += `<p style="margin:0 0 6px">To get back to a health factor of ${TARGET_HF}, repay about <strong>${usd(an.repayToTarget)}</strong> of debt (or add the equivalent value in collateral).</p>`;
+      }
+      if (body) html += `<div class="card"><h2>Borrow room and gains</h2>${body}</div>`;
+    }
+
+    // Liquidation card
+    const liveColl = pos.collaterals.filter(c => c.enabled);
+    if (a.totalDebtUsd > 0 && liveColl.length) {
+      const opts = liveColl.map(c => `<option value="${esc(c.symbol)}" ${c.symbol === an.sel ? 'selected' : ''}>${esc(c.symbol)}</option>`).join('');
+      const l = an.levels[3];
+      let main;
+      if (l.status === 'ok') main = `<div class="grid" style="margin-bottom:12px">
+          <div class="stat"><div class="k">${esc(an.sel)} price now</div><div class="v">${usdP(an.selC.price)}</div></div>
+          <div class="stat"><div class="k">Liquidation price</div><div class="v">${usdP(l.price)}</div></div>
+          <div class="stat"><div class="k">Drop to liquidation</div><div class="v">${l.dropPct.toFixed(1)}%</div></div>
+          <div class="stat"><div class="k">Collateral amount</div><div class="v">${amt(an.selC.amount)}</div></div></div>`;
+      else if (l.status === 'already') main = `<p><strong>Health factor is already at or below 1.0.</strong> This position can be liquidated now.</p>`;
+      else main = `<p>${esc(an.sel)} falling on its own would not get this loan to liquidation, because the other assets cover the debt.</p>`;
+      const rows = an.levels.map(x => {
+        const name = x.h === 1 ? '1.0 (liquidation)' : String(x.h);
+        if (x.status === 'ok') return `<tr><td>${name}</td><td>${usdP(x.price)}</td><td>${x.dropPct.toFixed(1)}%</td></tr>`;
+        if (x.status === 'already') return `<tr><td>${name}</td><td colspan="2">Already reached</td></tr>`;
+        return `<tr><td>${name}</td><td colspan="2">Not reachable by this asset alone</td></tr>`;
+      }).join('');
+      html += `<div class="card"><h2>Liquidation price</h2>
+        <div class="row" style="margin:0 0 10px"><label class="small" for="selcoll">Collateral to stress test:</label><select id="selcoll" style="width:auto">${opts}</select></div>
+        ${main}
+        <div class="tablewrap"><table><thead><tr><th>Health factor</th><th>${esc(an.sel)} price</th><th>Drop from now</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <p class="small" style="margin:10px 0 0">Assumes only ${esc(an.sel)} moves and everything else stays at today's oracle prices.${an.selDebtSame ? ' You also owe ' + esc(an.sel) + ', which is included.' : ''} If you borrowed a volatile asset instead of a stablecoin, real risk is higher.</p></div>`;
+    }
+
+    // Collateral table
+    if (pos.collaterals.length) {
+      html += `<div class="card"><h2>Collateral (supplied)</h2><div class="tablewrap"><table><thead><tr><th>Asset</th><th>Amount</th><th>Value</th><th>Price</th><th>Supply APY</th><th>LTV</th><th>Liq. threshold</th><th>Used as collateral</th></tr></thead><tbody>` +
+        pos.collaterals.map(c => `<tr><td>${esc(c.symbol)}</td><td>${amt(c.amount)}</td><td>${usd(c.usd)}</td><td>${usdP(c.price)}</td><td>${pct(c.supplyApy)}</td><td>${pct(c.ltv, 1)}</td><td>${pct(c.lt, 1)}</td><td>${c.enabled ? 'Yes' : 'No'}</td></tr>`).join('') +
+        `</tbody></table></div></div>`;
+    }
+    if (pos.debts.length) {
+      html += `<div class="card"><h2>Debt (borrowed)</h2><div class="tablewrap"><table><thead><tr><th>Asset</th><th>Amount owed</th><th>Value</th><th>Price</th><th>Borrow APY</th></tr></thead><tbody>` +
+        pos.debts.map(d => `<tr><td>${esc(d.symbol)}</td><td>${amt(d.amount)}</td><td>${usd(d.usd)}</td><td>${usdP(d.price)}</td><td>${d.stableShare ? 'Stable debt' : pct(d.borrowApy)}</td></tr>`).join('') +
+        `</tbody></table></div><p class="small" style="margin:10px 0 0">Borrow APY is the current variable rate, which can change any time. Amounts include interest accrued so far.</p></div>`;
+    }
+    $('out').innerHTML = html;
+    const s = $('selcoll');
+    if (s) s.addEventListener('change', e => { state.selSym = e.target.value; render(); });
+  }
+
+  function setStatus(msg, busy) { $('status').innerHTML = (busy ? '<span class="spin"></span>' : '') + esc(msg); }
+  function showError(msg) { const e = $('error'); e.textContent = msg; e.classList.toggle('hidden', !msg); }
+
+  async function load(manual) {
+    if (state.loading) return;
+    const addrRaw = $('addr').value.trim();
+    const chainKey = $('chain').value;
+    if (!isAddress(addrRaw, { strict: false })) { showError('That does not look like a valid 0x wallet address. It should be 42 characters starting with 0x.'); return; }
+    showError('');
+    state.loading = true; $('go').disabled = true;
+    setStatus('Reading Aave on ' + CHAINS[chainKey].name + '...', true);
+    try {
+      const pos = await fetchPosition(chainKey, addrRaw);
+      const sig = chainKey + ':' + pos.user.toLowerCase();
+      if (sig !== state.sig) { state.selSym = null; state.prevBand = null; state.sig = sig; }
+      state.pos = pos;
+      checkAlert(pos);
+      render();
+      $('share').classList.remove('hidden'); $('notif').classList.remove('hidden'); updateNotifBtn();
+      const u = new URL(location.href); u.searchParams.set('address', pos.user); u.searchParams.set('chain', chainKey);
+      try { history.replaceState(null, '', u); } catch (e) {}
+      startTimer();
+    } catch (e) {
+      console.error(e);
+      showError('Could not read the loan. The public network connection may be busy, so try again in a moment. (' + String(e.shortMessage || e.message || e).slice(0, 160) + ')');
+      setStatus('', false);
+    } finally {
+      state.loading = false; $('go').disabled = false;
+    }
+  }
+
+  function startTimer() {
+    clearInterval(state.timer);
+    state.countdown = 60;
+    tick();
+    state.timer = setInterval(() => {
+      state.countdown -= 1;
+      if (state.countdown <= 0) { state.countdown = 60; load(false); }
+      tick();
+    }, 1000);
+  }
+  function tick() {
+    if (state.loading || !state.pos) return;
+    const t = new Date(state.pos.fetchedAt).toLocaleTimeString();
+    setStatus('Updated ' + t + '. Refreshing in ' + state.countdown + 's.', false);
+  }
+
+  /* notifications */
+  function updateNotifBtn() {
+    const b = $('notif');
+    if (!('Notification' in window)) { b.classList.add('hidden'); return; }
+    if (Notification.permission === 'granted') { b.textContent = 'Alerts on (keep this tab open)'; b.disabled = true; }
+    else if (Notification.permission === 'denied') { b.textContent = 'Alerts blocked in browser'; b.disabled = true; }
+    else { b.textContent = 'Turn on alerts'; b.disabled = false; }
+  }
+  function checkAlert(pos) {
+    const b = bandFor(pos.account.hf);
+    const prev = state.prevBand;
+    state.prevBand = b.key;
+    if (!prev || prev === b.key) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const worse = BAND_ORDER.indexOf(b.key) < BAND_ORDER.indexOf(prev);
+    try {
+      new Notification('Aave health factor ' + (worse ? 'dropped' : 'improved') + ': ' + hfTxt(pos.account.hf), {
+        body: b.label + ' on ' + pos.chainName + ' for ' + pos.user.slice(0, 6) + '...' + pos.user.slice(-4)
+      });
+    } catch (e) {}
+  }
+
+  $('form').addEventListener('submit', e => { e.preventDefault(); load(true); });
+  $('share').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(location.href); $('share').textContent = 'Link copied'; }
+    catch (e) { window.prompt('Copy this link:', location.href); }
+    setTimeout(() => { $('share').textContent = 'Copy share link'; }, 2000);
+  });
+  $('notif').addEventListener('click', async () => { try { await Notification.requestPermission(); } catch (e) {} updateNotifBtn(); });
+
+  renderBands(null);
+  const qp = new URLSearchParams(location.search);
+  const qa = qp.get('address'), qc = (qp.get('chain') || '').toLowerCase();
+  if (CHAINS[qc]) $('chain').value = qc;
+  if (qa) { $('addr').value = qa.trim(); load(false); }
+}
+</script>
+</body>
+</html>
