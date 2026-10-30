@@ -64,16 +64,26 @@ code{background:var(--graybg);padding:1px 5px;border-radius:5px;font-size:.85em}
 a{color:var(--accent)}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
+.addrrow{display:flex;gap:8px;min-width:0}
+.addrrow input{flex:1 1 auto}
+.addrrow button{flex:0 0 auto;white-space:nowrap}
+#scanCard{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+#scanCard video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block;object-fit:cover}
+#scanMsg{margin:8px 0}
+#scanMsg.bad{color:var(--red)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Aave Loan Checker</h1>
-  <p class="sub">Paste a public wallet address to see its Aave V3 loan, health factor and liquidation price. Works for any address, nothing to install.</p>
+  <p class="sub">Paste or scan a public wallet address to see its Aave V3 loan, health factor and liquidation price. Works for any address, nothing to install.</p>
 
   <div class="card">
     <form id="form" autocomplete="off">
-      <input id="addr" type="text" inputmode="text" placeholder="Public wallet address (0x...)" spellcheck="false" aria-label="Public wallet address" required>
+      <div class="addrrow">
+        <input id="addr" type="text" inputmode="text" placeholder="Public wallet address (0x...)" spellcheck="false" aria-label="Public wallet address" required>
+        <button id="scan" type="button" class="ghost" aria-label="Scan a wallet QR code with your camera">Scan QR</button>
+      </div>
       <select id="chain" aria-label="Network">
         <option value="arbitrum">Arbitrum</option>
         <option value="ethereum">Ethereum</option>
@@ -87,6 +97,11 @@ a{color:var(--accent)}
       <button id="share" type="button" class="ghost hidden">Copy share link</button>
       <button id="notif" type="button" class="ghost hidden">Turn on alerts</button>
       <span id="status" class="small"></span>
+    </div>
+    <div id="scanCard" class="hidden" role="region" aria-label="QR scanner">
+      <video id="scanVideo" playsinline muted></video>
+      <p id="scanMsg" class="small" aria-live="polite"></p>
+      <button id="scanCancel" type="button" class="ghost">Cancel</button>
     </div>
     <p class="small" style="margin:10px 0 0">Tip: if your loan is held by a Safe or smart wallet, paste that contract address, not the owner wallet. You can also share a link like <code>?address=0x...&amp;chain=base</code>.</p>
   </div>
@@ -321,8 +336,45 @@ function analyze(pos, selSym) {
   return { sel, selC, selDebtSame, band, borrowMore, borrowMoreCapped, repayToTarget, capHit, levels, currentLtv };
 }
 
+/* ---------------- QR parsing (pure, no DOM) ----------------
+   Accepts plain "0x...", "ethereum:0x...@42161?value=1", "ethereum:pay-0x...",
+   EIP-681 token transfers ("ethereum:0xToken/transfer?address=0xRecipient&uint256=1")
+   and links that carry an address. Returns { address, chainKey } or null.
+   A 0x value longer than 40 hex characters (such as a 64-character key or
+   transaction hash) is never accepted. */
+const QR_CHAIN_IDS = { 1: 'ethereum', 42161: 'arbitrum', 8453: 'base', 10: 'optimism', 137: 'polygon' };
+function parseWalletQR(text) {
+  if (typeof text !== 'string') return null;
+  let t = text.trim();
+  if (!t || t.length > 2048) return null;
+  try { t = decodeURIComponent(t); } catch (e) {}
+  const ADDR = /(?<![0-9a-zA-Z])0[xX][0-9a-fA-F]{40}(?![0-9a-zA-Z])/;
+  let chainKey = null;
+  const m = t.match(/^ethereum:(?:pay-)?([^?\s]*)(?:\?(.*))?$/i);
+  let address = null;
+  if (m) {
+    const path = m[1], query = m[2] || '';
+    const cid = path.match(/@(\d+)/);
+    if (cid) chainKey = QR_CHAIN_IDS[Number(cid[1])] || null;
+    const q = new URLSearchParams(query);
+    const recip = q.get('address');
+    if (/\/transfer/i.test(path) && recip) { const r = recip.match(ADDR); if (r) address = r[0]; }
+    if (!address) { const r = path.match(ADDR); if (r) address = r[0]; }
+    if (!address && recip) { const r = recip.match(ADDR); if (r) address = r[0]; }
+  } else {
+    const r = t.match(ADDR);
+    if (r) address = r[0];
+    const c = t.match(/[?&]chain(?:Id)?=(\w+)/i);
+    if (c) chainKey = QR_CHAIN_IDS[Number(c[1])] || (Object.values(QR_CHAIN_IDS).includes(c[1].toLowerCase()) ? c[1].toLowerCase() : null);
+  }
+  if (!address) return null;
+  address = '0x' + address.slice(2);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return null;
+  return { address, chainKey };
+}
+
 /* expose for headless tests */
-globalThis.AaveChecker = { CHAINS, fetchPosition, analyze, bandFor, priceAtHF, defaultSelected, makeClient };
+globalThis.AaveChecker = { parseWalletQR, CHAINS, fetchPosition, analyze, bandFor, priceAtHF, defaultSelected, makeClient };
 
 /* ---------------- UI ---------------- */
 if (typeof document !== 'undefined') {
@@ -493,6 +545,115 @@ if (typeof document !== 'undefined') {
       });
     } catch (e) {}
   }
+
+  /* ---------------- QR scanner (camera stays on this device, nothing is uploaded) ---------------- */
+  const JSQR_URL = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+  const JSQR_SRI = 'sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx';
+  const scan = { stream: null, running: false, detector: null, canvas: null, raf: 0, lastTick: 0 };
+  function loadJsQR() {
+    if (window.jsQR) return Promise.resolve(window.jsQR);
+    return new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = JSQR_URL; el.integrity = JSQR_SRI; el.crossOrigin = 'anonymous';
+      el.onload = () => window.jsQR ? resolve(window.jsQR) : reject(new Error('scanner library missing'));
+      el.onerror = () => reject(new Error('scanner library failed to load'));
+      document.head.appendChild(el);
+    });
+  }
+  function scanMsg(msg, bad) { const m = $('scanMsg'); m.textContent = msg; m.classList.toggle('bad', !!bad); }
+  function stopScan() {
+    scan.running = false;
+    cancelAnimationFrame(scan.raf);
+    if (scan.stream) { scan.stream.getTracks().forEach(t => t.stop()); scan.stream = null; }
+    const v = $('scanVideo'); try { v.pause(); } catch (e) {} v.srcObject = null;
+    $('scanCard').classList.add('hidden');
+    $('scan').disabled = false;
+  }
+  async function startScan() {
+    if (scan.running) return;
+    showError('');
+    $('scanCard').classList.remove('hidden');
+    $('scan').disabled = true;
+    scanMsg('Starting the camera...');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext) {
+      scanMsg('This browser cannot open the camera here. Paste the address instead, or open this page in Safari or Chrome.', true);
+      return;
+    }
+    try {
+      scan.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    } catch (e) {
+      const n = e && e.name;
+      if (n === 'NotAllowedError' || n === 'SecurityError') scanMsg('Camera access was blocked. Allow the camera for this site in your browser settings, then tap Scan QR again. You can also paste the address.', true);
+      else if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') scanMsg('No camera was found on this device. Paste the address instead.', true);
+      else if (n === 'NotReadableError') scanMsg('The camera is busy in another app. Close it and try again, or paste the address.', true);
+      else scanMsg('Could not open the camera. Paste the address instead.', true);
+      scan.stream = null;
+      return;
+    }
+    const v = $('scanVideo');
+    v.srcObject = scan.stream;
+    try { await v.play(); } catch (e) {}
+    let decode;
+    try {
+      if ('BarcodeDetector' in window) {
+        let ok = true;
+        try { const f = await BarcodeDetector.getSupportedFormats(); ok = f.includes('qr_code'); } catch (e) {}
+        if (ok) {
+          const det = new BarcodeDetector({ formats: ['qr_code'] });
+          decode = async () => { const r = await det.detect(v); return r && r[0] ? r[0].rawValue : null; };
+        }
+      }
+      if (!decode) {
+        const jsQR = await loadJsQR();
+        scan.canvas = scan.canvas || document.createElement('canvas');
+        const ctx = scan.canvas.getContext('2d', { willReadFrequently: true });
+        decode = async () => {
+          const w = v.videoWidth, h = v.videoHeight;
+          if (!w || !h) return null;
+          const k = Math.min(1, 640 / w);
+          scan.canvas.width = Math.round(w * k); scan.canvas.height = Math.round(h * k);
+          ctx.drawImage(v, 0, 0, scan.canvas.width, scan.canvas.height);
+          const img = ctx.getImageData(0, 0, scan.canvas.width, scan.canvas.height);
+          const r = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+          return r ? r.data : null;
+        };
+      }
+    } catch (e) {
+      stopScan(); $('scanCard').classList.remove('hidden');
+      scanMsg('The scanner could not load. Check your connection, or paste the address instead.', true);
+      return;
+    }
+    scan.running = true;
+    scanMsg('Point the camera at the wallet QR code.');
+    const loop = async (ts) => {
+      if (!scan.running) return;
+      if (ts - scan.lastTick > 200) {
+        scan.lastTick = ts;
+        try {
+          const raw = await decode();
+          if (!scan.running) return;
+          if (raw) {
+            const r = parseWalletQR(raw);
+            if (r) { onScanned(r); return; }
+            scanMsg('That QR code does not hold a wallet address (0x followed by 40 characters). Try another one.', true);
+          }
+        } catch (e) { /* keep trying */ }
+      }
+      scan.raf = requestAnimationFrame(loop);
+    };
+    scan.raf = requestAnimationFrame(loop);
+  }
+  function onScanned(r) {
+    stopScan();
+    $('addr').value = r.address;
+    if (r.chainKey && CHAINS[r.chainKey]) $('chain').value = r.chainKey;
+    setStatus('Address scanned.', false);
+    load(true);
+  }
+  $('scan').addEventListener('click', startScan);
+  $('scanCancel').addEventListener('click', () => { stopScan(); setStatus('', false); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && scan.running) stopScan(); });
+  window.addEventListener('pagehide', stopScan);
 
   $('form').addEventListener('submit', e => { e.preventDefault(); load(true); });
   $('share').addEventListener('click', async () => {
