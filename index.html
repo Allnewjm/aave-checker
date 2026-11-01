@@ -71,12 +71,58 @@ a{color:var(--accent)}
 #scanCard video{width:100%;max-height:60vh;border-radius:10px;background:#000;display:block;object-fit:cover}
 #scanMsg{margin:8px 0}
 #scanMsg.bad{color:var(--red)}
+
+/* ---- compact mobile-first layout ---- */
+.wrap{padding:12px 12px 32px}
+h1{font-size:1.25rem;margin:0}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 8px}
+.card{padding:12px;margin-bottom:10px}
+form{display:flex;flex-direction:column;gap:8px}
+.ctlrow{display:flex;gap:8px}
+.ctlrow select{flex:1 1 auto}
+.ctlrow button{flex:0 0 auto;white-space:nowrap}
+#status{min-height:1.3em;margin:6px 0 0}
+.kv td{white-space:normal;padding:7px 4px}
+.kv td:first-child{text-align:left;color:var(--muted);width:46%}
+.kv td:last-child{text-align:right;font-weight:600}
+.kv .sm{font-weight:400;color:var(--muted);font-size:.85rem}
+.kv tr.hfrow td:last-child{font-size:1.5rem;line-height:1.2}
+.kv tr.hfrow .badge{font-size:.8rem;vertical-align:middle;margin-left:6px}
+.cardhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.cardhead h2{margin:0}
+button.sm{padding:6px 10px;font-size:.85rem}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.seg button{flex:1;background:transparent;color:var(--text);border:0;border-radius:0;padding:9px 6px;font-weight:600;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-checked="true"]{background:var(--accent);color:#fff}
+.readout{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.readout .rv{font-size:1.5rem;font-weight:750;line-height:1.2}
+input[type=range]{-webkit-appearance:none;appearance:none;padding:0;border:0;background:transparent;height:36px;margin:2px 0;touch-action:pan-y;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:14px;border-radius:7px;background:var(--track,var(--line))}
+input[type=range]::-moz-range-track{height:14px;border-radius:7px;background:var(--track,var(--line))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;margin-top:-8px;border-radius:50%;background:#fff;border:3px solid var(--text);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid var(--text);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.ends{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-bottom:8px}
+.scn td,.scn th{white-space:normal;padding:7px 4px;vertical-align:top}
+.scn td:first-child{color:var(--muted)}
+.scn td.a{font-weight:600;white-space:nowrap;text-align:right}
+.scn td.b{font-weight:700;white-space:nowrap;text-align:right}
+.scn .wr{white-space:normal;display:inline-block;max-width:9em}
+.scn .sm{display:block;font-weight:400;color:var(--muted);font-size:.8rem}
+.scn tr.act td{background:var(--bg)}
+.c-green{color:var(--green)}.c-yellow{color:var(--yellow)}.c-orange{color:var(--orange)}.c-red{color:var(--red)}
+.tgt{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.tgt input{width:80px}
+.tgt select{width:auto}
+details.card>summary{cursor:pointer;font-weight:650;list-style-position:inside}
+details.card[open]>summary{margin-bottom:10px}
+details.card h3{font-size:.95rem;margin:12px 0 6px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Aave Loan Checker</h1>
-  <p class="sub">Paste or scan a public wallet address to see its Aave V3 loan, health factor and liquidation price. Works for any address, nothing to install.</p>
+  <div class="top"><h1>Aave Loan Checker</h1><span class="small">Read-only</span></div>
 
   <div class="card">
     <form id="form" autocomplete="off">
@@ -84,38 +130,42 @@ a{color:var(--accent)}
         <input id="addr" type="text" inputmode="text" placeholder="Public wallet address (0x...)" spellcheck="false" aria-label="Public wallet address" required>
         <button id="scan" type="button" class="ghost" aria-label="Scan a wallet QR code with your camera">Scan QR</button>
       </div>
-      <select id="chain" aria-label="Network">
-        <option value="arbitrum">Arbitrum</option>
-        <option value="ethereum">Ethereum</option>
-        <option value="base">Base</option>
-        <option value="optimism">Optimism</option>
-        <option value="polygon">Polygon</option>
-      </select>
-      <button id="go" type="submit">Check loan</button>
+      <div class="ctlrow">
+        <select id="chain" aria-label="Network">
+          <option value="arbitrum">Arbitrum</option>
+          <option value="ethereum">Ethereum</option>
+          <option value="base">Base</option>
+          <option value="optimism">Optimism</option>
+          <option value="polygon">Polygon</option>
+        </select>
+        <button id="go" type="submit">Check loan</button>
+        <button id="clear" type="button" class="ghost">Clear</button>
+      </div>
     </form>
-    <div class="row">
-      <button id="share" type="button" class="ghost hidden">Copy share link</button>
-      <button id="notif" type="button" class="ghost hidden">Turn on alerts</button>
-      <button id="clear" type="button" class="ghost">Clear</button>
-      <span id="status" class="small"></span>
-    </div>
-    <p class="small" style="margin:10px 0 0">Nothing is saved on a server. Clear removes it from this browser. Your browser history may still show the link.</p>
+    <div id="status" class="small" aria-live="polite"></div>
     <div id="scanCard" class="hidden" role="region" aria-label="QR scanner">
       <video id="scanVideo" playsinline muted></video>
       <p id="scanMsg" class="small" aria-live="polite"></p>
       <button id="scanCancel" type="button" class="ghost">Cancel</button>
     </div>
-    <p class="small" style="margin:10px 0 0">Tip: if your loan is held by a Safe or smart wallet, paste that contract address, not the owner wallet. You can also share a link like <code>?address=0x...&amp;chain=base</code>.</p>
   </div>
 
   <div id="error" class="err hidden"></div>
   <div id="out"></div>
 
-  <div class="card" id="bandsCard">
-    <h2>What the health factor means</h2>
+  <details class="card" id="guide">
+    <summary>Guide, sharing and tips</summary>
+    <div class="row" style="margin:0 0 8px">
+      <button id="share" type="button" class="ghost sm hidden">Copy share link</button>
+      <button id="notif" type="button" class="ghost sm hidden">Turn on alerts</button>
+    </div>
+    <h3>What the health factor means</h3>
     <ul class="bands" id="bandsList"></ul>
     <p class="small" style="margin:10px 0 0">Health factor is your collateral (weighted by each asset's liquidation threshold) divided by your debt. Below 1.0 your collateral can be liquidated.</p>
-  </div>
+    <h3>Tips</h3>
+    <p class="small" style="margin:0 0 6px">If your loan is held by a Safe or smart wallet, paste that contract address, not the owner wallet. You can also share a link like <code>?address=0x...&amp;chain=base</code>.</p>
+    <p class="small" style="margin:0">Nothing is saved on a server. Clear removes it from this browser. Your browser history may still show the link.</p>
+  </details>
 
   <footer>
     <p><strong>Read-only.</strong> This page never asks for a seed phrase or private key and never sends a transaction. It only reads public blockchain data.</p>
@@ -279,7 +329,7 @@ async function fetchPosition(chainKey, userAddr, clientOverride) {
     const dAmt = a.vDebt + a.sDebt;
     if (dAmt > 0n) {
       const amount = Number(formatUnits(dAmt, dec));
-      debts.push({ ...base, amount, usd: amount * price, borrowApy: rayToApy(rds[i][6]), stableShare: a.sDebt > 0n });
+      debts.push({ ...base, amount, usd: amount * price, borrowApy: rayToApy(rds[i][6]), borrowApr: Number(rds[i][6]) / 1e27, stableShare: a.sDebt > 0n });
     }
   });
   collaterals.sort((x, y) => y.usd - x.usd);
@@ -338,11 +388,10 @@ function analyze(pos, selSym) {
   return { sel, selC, selDebtSame, band, borrowMore, borrowMoreCapped, repayToTarget, capHit, levels, currentLtv };
 }
 
-/* ---------------- add-collateral maths (pure) ----------------
+/* ---------------- custom-target maths (pure) ----------------
    Extra collateral (USD) needed so that debt / (collateral + extra) = target LTV:
    extra = debt / targetLtv - collateral. Uses the position totals from Pool.getUserAccountData. */
 /* addcoll:start */
-const LTV_PRESETS = [0.3, 0.4, 0.5, 0.6, 0.7];
 function addCollateralFor(debtUsd, collateralUsd, targetLtv, price) {
   if (!(debtUsd > 0)) return { status: 'nodebt' };
   if (!(targetLtv > 0) || !(targetLtv <= 1) || !Number.isFinite(targetLtv)) return { status: 'invalid' };
@@ -353,23 +402,103 @@ function addCollateralFor(debtUsd, collateralUsd, targetLtv, price) {
 function mainCollateral(collaterals) {
   return collaterals.find(c => c.enabled) || collaterals[0] || null;
 }
-function addCollateralRows(account, mainColl) {
-  const price = mainColl ? mainColl.price : 0;
-  const rows = LTV_PRESETS.map(t => ({ label: Math.round(t * 100) + '%', target: t, ...addCollateralFor(account.totalDebtUsd, account.totalCollateralUsd, t, price) }));
-  if (account.liqThreshold > 0) {
-    const t = account.liqThreshold / TARGET_HF;
-    rows.push({ label: pctLabel(t) + ' (health factor ' + TARGET_HF + ')', target: t, ...addCollateralFor(account.totalDebtUsd, account.totalCollateralUsd, t, price) });
-  }
-  return rows;
-}
-function pctLabel(t) { return (Math.round(t * 1000) / 10) + '%'; }
 function parseLtvInput(text) {
   const t = String(text == null ? '' : text).trim().replace('%', '').replace(',', '.');
   if (!/^(\d+\.?\d*|\.\d+)$/.test(t)) return null;
   const v = Number(t);
   return v > 0 && v <= 100 ? v / 100 : null;
 }
+/* parse the adjustable target health factor box: a number from 1.05 to 10, else null */
+function parseHfInput(text) {
+  const t = String(text == null ? '' : text).trim().replace(',', '.');
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+  const v = Number(t);
+  return v >= 1.05 && v <= 10 ? v : null;
+}
 /* addcoll:end */
+
+/* ---------------- what-if scenario maths (pure) ----------------
+   Only the chosen main collateral changes price (x = new price / price now). Debt is held constant
+   (a stablecoin loan). With C = total collateral, W = C * weighted liquidation threshold, D = debt:
+     C' = C + M * (x - 1)           W' = W + M * ltM * (x - 1)
+     HF = W' / D                    LTV = D / C'
+   M is the value of the main collateral and ltM its own liquidation threshold. */
+/* scenario:start */
+const SCN_XMIN = 0.3, SCN_XMAX = 2;
+const clampX = x => Math.min(SCN_XMAX, Math.max(SCN_XMIN, x));
+function scnTotals(pos, main) {
+  const a = pos.account;
+  const emode = !!pos.emode;
+  return {
+    C: a.totalCollateralUsd, D: a.totalDebtUsd, W: a.totalCollateralUsd * a.liqThreshold,
+    Mv: main.usd, ltM: emode ? a.liqThreshold : main.lt, ltvM: emode ? a.ltv : main.ltv,
+    Lmax: a.totalCollateralUsd * a.ltv
+  };
+}
+function scnLtvAt(t, x) { const c = t.C + t.Mv * (x - 1); return c > 0 ? t.D / c : 0; }
+function scenarioAt(pos, main, x, targetHF) {
+  const t = scnTotals(pos, main);
+  const T = targetHF > 1 ? targetHF : TARGET_HF;
+  const dx = x - 1;
+  const C1 = t.C + t.Mv * dx;
+  const W1 = t.W + t.Mv * t.ltM * dx;
+  const hf = t.D > 0 ? W1 / t.D : Infinity;
+  const ltv = C1 > 0 ? t.D / C1 : 0;
+  const price = main.price * x;
+  let liqX = null;
+  if (t.D > 0 && t.Mv * t.ltM > 0) { const lx = 1 + (t.D - t.W) / (t.Mv * t.ltM); if (lx > 0) liqX = lx; }
+  let dropPct = null;
+  if (hf <= 1) dropPct = 0; else if (liqX != null && x > 0) dropPct = (1 - liqX / x) * 100;
+  const needUsd = t.ltM > 0 ? (T * t.D - W1) / t.ltM : 0;
+  const addUsd = needUsd > 0.005 ? needUsd : 0;
+  const rep = t.D - W1 / T;
+  const repayUsd = rep > 0.005 ? rep : 0;
+  const roomRaw = W1 / T - t.D;
+  let room = 0, roomCapped = 0;
+  if (roomRaw > 0.005) {
+    room = roomRaw;
+    const avail = Math.max(0, t.Lmax + t.Mv * t.ltvM * dx - t.D);
+    roomCapped = Math.min(room, avail);
+  }
+  return {
+    x, price, collateralUsd: C1, debtUsd: t.D, ltv, hf,
+    liqPrice: liqX == null ? null : main.price * liqX, dropPct,
+    addUsd, addCoin: price > 0 ? addUsd / price : null, repayUsd,
+    room, roomCapped, capHit: roomCapped < room, targetHF: T
+  };
+}
+/* slider position t (0 to 1) <-> price factor x, for each driver mode.
+   Price and HF are both straight lines in x. LTV is not, so it gets its own mapping.
+   Left end is always the low price (riskiest) end. */
+function scnXFromT(mode, tt, pos, main) {
+  tt = Math.min(1, Math.max(0, tt));
+  if (mode !== 'ltv') return SCN_XMIN + tt * (SCN_XMAX - SCN_XMIN);
+  const t = scnTotals(pos, main);
+  const l0 = scnLtvAt(t, SCN_XMIN), l1 = scnLtvAt(t, SCN_XMAX);
+  const l = l0 + tt * (l1 - l0);
+  if (!(l > 0) || !(t.Mv > 0)) return 1;
+  return clampX(1 + (t.D / l - t.C) / t.Mv);
+}
+function scnTFromX(mode, x, pos, main) {
+  x = clampX(x);
+  if (mode !== 'ltv') return (x - SCN_XMIN) / (SCN_XMAX - SCN_XMIN);
+  const t = scnTotals(pos, main);
+  const l0 = scnLtvAt(t, SCN_XMIN), l1 = scnLtvAt(t, SCN_XMAX);
+  if (l1 === l0) return 0;
+  return Math.min(1, Math.max(0, (scnLtvAt(t, x) - l0) / (l1 - l0)));
+}
+/* band colours for the track and value: green above 1.8, yellow 1.5 to 1.8, orange 1.3 to 1.5, red below 1.3 */
+function scnColorKey(hf) { return hf > 1.8 ? 'green' : hf > 1.5 ? 'yellow' : hf > 1.3 ? 'orange' : 'red'; }
+function scnTrackStops(mode, pos, main, n) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const x = scnXFromT(mode, i / n, pos, main);
+    const hf = scenarioAt(pos, main, x, TARGET_HF).hf;
+    out.push(scnColorKey(hf));
+  }
+  return out; // n + 1 colour keys, evenly spaced
+}
+/* scenario:end */
 
 /* ---------------- QR parsing (pure, no DOM) ----------------
    Accepts plain "0x...", "ethereum:0x...@42161?value=1", "ethereum:pay-0x...",
@@ -409,7 +538,7 @@ function parseWalletQR(text) {
 }
 
 /* expose for headless tests */
-globalThis.AaveChecker = { parseWalletQR, CHAINS, fetchPosition, analyze, bandFor, priceAtHF, defaultSelected, makeClient, addCollateralFor, addCollateralRows, mainCollateral, parseLtvInput };
+globalThis.AaveChecker = { parseWalletQR, CHAINS, fetchPosition, analyze, bandFor, priceAtHF, defaultSelected, makeClient, addCollateralFor, mainCollateral, parseLtvInput, parseHfInput, scenarioAt, scnXFromT, scnTFromX, scnTrackStops, scnColorKey };
 
 /* ---------------- UI ---------------- */
 if (typeof document !== 'undefined') {
@@ -421,37 +550,123 @@ if (typeof document !== 'undefined') {
   const pct = (n, d = 2) => (n * 100).toFixed(d) + '%';
   const hfTxt = h => h === Infinity ? 'No debt' : h > 99 ? '99+' : h.toFixed(2);
 
-  let state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: 0, customLtv: '' };
+  let state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: 0, scnMode: 'price', scnPrice: null, targetHF: String(TARGET_HF), dragAt: 0, pendingRender: false, open: {} };
 
   function renderBands(currentKey) {
     $('bandsList').innerHTML = BANDS.map(b =>
       `<li class="${b.key === currentKey ? 'now' : ''}"><span class="badge ${b.cls}">${esc(b.range)}</span><span>${esc(b.label)}: ${esc(b.text)}${b.key === currentKey ? ' (you are here)' : ''}</span></li>`).join('');
   }
 
-  function addRowHtml(r, main) {
-    if (r.status === 'add') return `<tr><td>${esc(r.label)}</td><td>${usd(r.extraUsd)}</td><td>${r.extraAmount != null && main ? amt(r.extraAmount) + ' ' + esc(main.symbol) : 'n/a'}</td><td>${usd(r.newCollateralUsd)}</td></tr>`;
-    if (r.status === 'below') return `<tr><td>${esc(r.label)}</td><td colspan="3">Already below this level, nothing to add</td></tr>`;
-    return `<tr><td>${esc(r.label)}</td><td colspan="3">Not available</td></tr>`;
+  const MODES = { price: 'Price', hf: 'Health factor', ltv: 'Loan to value' };
+  const band4 = hf => { const b = bandFor(hf); return b.key === 'room' ? BANDS[1] : b; };
+  const hfCls = hf => 'c-' + scnColorKey(hf);
+  const COLOR_VAR = { green: 'var(--green)', yellow: 'var(--yellow)', orange: 'var(--orange)', red: 'var(--red)' };
+  const sgn = n => (n >= 0 ? '+' : '-') + Math.abs(n).toFixed(0) + '%';
+  const dragging = () => state.dragAt && Date.now() - state.dragAt < 30000;
+
+  function scnCtx() {
+    const pos = state.pos;
+    if (!pos || !(pos.account.totalDebtUsd > 0)) return null;
+    const live = pos.collaterals.filter(c => c.enabled);
+    const main = live.find(c => c.symbol === state.selSym) || mainCollateral(pos.collaterals);
+    if (!main || !main.enabled || !(main.usd > 0) || !(main.price > 0)) return null;
+    return { pos, main, live };
   }
-  function customHtml(a, main) {
-    const t = parseLtvInput(state.customLtv);
-    if (!String(state.customLtv).trim()) return '<span class="small">Type a target to see the amount.</span>';
-    if (t == null) return '<span class="small">Enter a number above 0 and up to 100.</span>';
-    const r = addCollateralFor(a.totalDebtUsd, a.totalCollateralUsd, t, main ? main.price : 0);
-    if (r.status === 'below') return `<strong>Already below ${esc(pctLabel(t))}.</strong> Nothing to add.`;
-    if (r.status !== 'add') return '<span class="small">Not available.</span>';
-    return `Add about <strong>${usd(r.extraUsd)}</strong>${r.extraAmount != null && main ? ' (about <strong>' + amt(r.extraAmount) + ' ' + esc(main.symbol) + '</strong>)' : ''} to reach ${esc(pctLabel(t))}. New collateral total: ${usd(r.newCollateralUsd)}.`;
+  function scnX(ctx) {
+    if (state.scnPrice == null) return 1;
+    return clampX(state.scnPrice / ctx.main.price);
   }
-  function renderCustom() {
-    const el = document.getElementById('customOut');
-    if (el && state.pos) el.innerHTML = customHtml(state.pos.account, mainCollateral(state.pos.collaterals));
+  function target() { return parseHfInput(state.targetHF) || TARGET_HF; }
+
+  function valueCell(usdV, coin, sym) {
+    if (!(usdV > 0)) return 'Not needed';
+    return `${usd(usdV)}${coin != null ? `<span class="sm">${amt(coin)} ${esc(sym)}</span>` : ''}`;
+  }
+  function scnTableHtml(ctx, x) {
+    const { pos, main } = ctx;
+    const T = target();
+    const n = scenarioAt(pos, main, 1, T), w = scenarioAt(pos, main, x, T);
+    const sym = esc(main.symbol);
+    const dist = r => r.hf <= 1 ? 'Liquidatable' : r.dropPct == null ? '<span class="wr sm">Not reachable by this asset alone</span>' : r.dropPct.toFixed(1) + '% drop';
+    const hfc = r => `<span class="${hfCls(r.hf)}">${hfTxt(r.hf)}</span>`;
+    const roomCell = r => r.room > 0 ? `${usd(r.roomCapped)}${r.capHit ? '<span class="sm">capped by Aave max LTV</span>' : ''}` : 'None';
+    const t = esc(String(T));
+    return `<table class="scn"><thead><tr><th>&nbsp;</th><th style="text-align:right">Now</th><th style="text-align:right">What if</th></tr></thead><tbody>
+      <tr><td>${sym} price</td><td class="a">${usdP(main.price)}</td><td class="b">${usdP(w.price)}<span class="sm">${x === 1 ? 'same as now' : sgn((x - 1) * 100) + ' from now'}</span></td></tr>
+      <tr><td>Collateral value</td><td class="a">${usd(n.collateralUsd)}</td><td class="b">${usd(w.collateralUsd)}</td></tr>
+      <tr><td>Loan to value</td><td class="a">${pct(n.ltv, 1)}</td><td class="b">${pct(w.ltv, 1)}</td></tr>
+      <tr><td>Health factor</td><td class="a">${hfc(n)}</td><td class="b">${hfc(w)}</td></tr>
+      <tr><td>Distance to liquidation</td><td class="a">${dist(n)}</td><td class="b">${dist(w)}</td></tr>
+      <tr class="act"><td>Add collateral to get to health factor ${t}</td><td class="a">${valueCell(n.addUsd, n.addCoin, main.symbol)}</td><td class="b">${valueCell(w.addUsd, w.addCoin, main.symbol)}</td></tr>
+      <tr class="act"><td>Or repay debt to get to ${t}</td><td class="a">${valueCell(n.repayUsd)}</td><td class="b">${valueCell(w.repayUsd)}</td></tr>
+      <tr class="act"><td>Room to borrow again, back to ${t}</td><td class="a">${roomCell(n)}</td><td class="b">${roomCell(w)}</td></tr>
+    </tbody></table>`;
+  }
+  /* update everything that moves with the slider, without rebuilding it */
+  function renderScn() {
+    const ctx = scnCtx();
+    const tbl = document.getElementById('scnTable');
+    if (!ctx || !tbl) return;
+    const x = scnX(ctx);
+    const w = scenarioAt(ctx.pos, ctx.main, x, target());
+    tbl.innerHTML = scnTableHtml(ctx, x);
+    const rv = $('scnVal');
+    const mode = state.scnMode;
+    rv.textContent = mode === 'price' ? usdP(w.price) + (x === 1 ? '' : ' (' + sgn((x - 1) * 100) + ')')
+      : mode === 'hf' ? 'HF ' + hfTxt(w.hf) : 'LTV ' + pct(w.ltv, 1);
+    rv.className = 'rv ' + hfCls(w.hf);
+    const b = w.hf <= 1 ? BANDS[5] : band4(w.hf);
+    const bd = $('scnBadge');
+    bd.className = 'badge ' + b.cls;
+    bd.textContent = (mode === 'price' ? 'HF ' + hfTxt(w.hf) + ', ' : '') + b.label;
+    $('scnSlider').setAttribute('aria-valuetext', rv.textContent + ', ' + b.label);
+  }
+  /* rebuild the slider itself: position, track colours and end labels */
+  function syncSlider() {
+    const ctx = scnCtx();
+    const sl = document.getElementById('scnSlider');
+    if (!ctx || !sl) return;
+    const { pos, main } = ctx, mode = state.scnMode;
+    sl.value = String(Math.round(scnTFromX(mode, scnX(ctx), pos, main) * 1000));
+    const N = 68, keys = scnTrackStops(mode, pos, main, N);
+    const parts = [];
+    let i = 0;
+    while (i <= N) {
+      let j = i; while (j + 1 <= N && keys[j + 1] === keys[i]) j++;
+      const from = i === 0 ? 0 : (i - 0.5) / N * 100, to = j === N ? 100 : (j + 0.5) / N * 100;
+      parts.push(`${COLOR_VAR[keys[i]]} ${from.toFixed(2)}%`, `${COLOR_VAR[keys[i]]} ${to.toFixed(2)}%`);
+      i = j + 1;
+    }
+    sl.style.setProperty('--track', 'linear-gradient(to right, ' + parts.join(', ') + ')');
+    const lo = scenarioAt(pos, main, scnXFromT(mode, 0, pos, main), target());
+    const hi = scenarioAt(pos, main, scnXFromT(mode, 1, pos, main), target());
+    const f = r => mode === 'price' ? usdP(r.price) : mode === 'hf' ? 'HF ' + hfTxt(r.hf) : 'LTV ' + pct(r.ltv, 0);
+    $('scnLo').textContent = f(lo); $('scnHi').textContent = f(hi);
+    document.querySelectorAll('#scnSeg button').forEach(bt => bt.setAttribute('aria-checked', String(bt.dataset.mode === mode)));
+    sl.setAttribute('aria-label', 'What if slider, driven by ' + MODES[mode].toLowerCase());
+  }
+  function scnHtml(ctx) {
+    const { main, live } = ctx;
+    const sel = live.length > 1 ? `<label class="small" for="scnAsset">Asset that moves:</label><select id="scnAsset">${live.map(c => `<option value="${esc(c.symbol)}" ${c.symbol === main.symbol ? 'selected' : ''}>${esc(c.symbol)}</option>`).join('')}</select>` : '';
+    return `<div class="card" id="scnCard">
+      <div class="cardhead"><h2>What if</h2><button id="scnReset" type="button" class="ghost sm">Reset to now</button></div>
+      <div class="seg" id="scnSeg" role="radiogroup" aria-label="What the slider controls">${Object.keys(MODES).map(k => `<button type="button" role="radio" data-mode="${k}" aria-checked="${k === state.scnMode}">${k === 'price' ? esc(main.symbol) + ' price' : k === 'hf' ? 'HF' : 'LTV'}</button>`).join('')}</div>
+      <div class="readout"><span class="rv" id="scnVal"></span><span class="badge" id="scnBadge"></span></div>
+      <input id="scnSlider" type="range" min="0" max="1000" step="1" value="0">
+      <div class="ends"><span id="scnLo"></span><span id="scnHi"></span></div>
+      <div class="tablewrap" id="scnTable"></div>
+      <div class="tgt"><label class="small" for="targetHF">Target health factor:</label><input id="targetHF" type="text" inputmode="decimal" autocomplete="off" value="${esc(state.targetHF)}" aria-label="Target health factor, default 2.2">${sel}</div>
+      <p class="small" id="tgtMsg" style="margin:6px 0 0"></p>
+      <p class="small" style="margin:8px 0 0">Assumes only ${esc(main.symbol)} changes price and your debt stays the same (a stablecoin loan). Other assets stay at today's oracle prices. Collateral to add uses ${esc(main.symbol)}'s own liquidation threshold. Estimates only.</p>
+    </div>`;
   }
 
   function render() {
     const pos = state.pos;
     if (!pos) return;
-    const an = analyze(pos, state.selSym);
-    state.selSym = an.sel;
+    if (dragging()) { state.pendingRender = true; return; }
+    state.pendingRender = false;
+    const an = analyze(pos);
     const a = pos.account;
     renderBands(an.band.key);
     const hasPos = pos.collaterals.length || pos.debts.length;
@@ -459,96 +674,84 @@ if (typeof document !== 'undefined') {
       $('out').innerHTML = `<div class="card"><h2>No Aave V3 position found</h2><p>This address has nothing supplied or borrowed on Aave V3 ${esc(pos.chainName)}. Check the network, or the address (loans held by a Safe live at the Safe's address).</p></div>`;
       return;
     }
-    let html = '';
-    html += `<div class="card"><div class="hf"><div><div class="small">Health factor</div><div class="hfnum">${hfTxt(a.hf)}</div></div>
-      <div><span class="badge ${an.band.cls}">${esc(an.band.label)}</span><div class="small" style="margin-top:6px">${esc(an.band.text)}</div></div></div>
-      <div class="grid" style="margin-top:14px">
+    const ctx = scnCtx();
+    if (ctx) state.selSym = ctx.main.symbol;
+    const open = id => state.open[id] ? ' open' : '';
+
+    // 1) one summary table
+    const base = ctx ? scenarioAt(pos, ctx.main, 1, target()) : null;
+    const rows = [];
+    rows.push(`<tr class="hfrow"><td>Health factor</td><td>${hfTxt(a.hf)}<span class="badge ${an.band.cls}">${esc(an.band.label)}</span></td></tr>`);
+    pos.collaterals.forEach(c => rows.push(`<tr><td>${esc(c.symbol)} supplied${c.enabled ? '' : ' (not used as collateral)'}</td><td>${amt(c.amount)} <span class="sm">(${usd(c.usd)})</span></td></tr>`));
+    pos.debts.forEach(d => rows.push(`<tr><td>${esc(d.symbol)} borrowed<br><span class="sm">${d.stableShare ? 'stable rate' : pct(d.borrowApr) + ' APR'}</span></td><td>${amt(d.amount)} <span class="sm">(${usd(d.usd)})</span></td></tr>`));
+    rows.push(`<tr><td>Current loan to value</td><td>${pct(an.currentLtv, 1)}</td></tr>`);
+    rows.push(`<tr><td>Max loan to value</td><td>${pct(a.ltv, 1)}</td></tr>`);
+    rows.push(`<tr><td>Liquidation threshold</td><td>${pct(a.liqThreshold, 1)}</td></tr>`);
+    if (ctx && base) {
+      let v;
+      if (base.hf <= 1) v = 'Already liquidatable';
+      else if (base.liqPrice == null) v = '<span class="sm">Not reachable by this asset alone</span>';
+      else v = `${usdP(base.liqPrice)}<br><span class="sm">${base.dropPct.toFixed(1)}% below now</span>`;
+      rows.push(`<tr><td>${esc(ctx.main.symbol)} liquidation price</td><td>${v}</td></tr>`);
+    }
+    let html = `<div class="card"><div class="cardhead"><h2>Your loan</h2><span class="small">${esc(pos.chainName)}, ${esc(pos.user.slice(0, 6))}...${esc(pos.user.slice(-4))}</span></div>
+      <div class="tablewrap"><table class="kv"><tbody>${rows.join('')}</tbody></table></div></div>`;
+
+    // 2) what-if panel
+    if (ctx) html += scnHtml(ctx);
+
+    // 3) closed by default: per-asset breakdown
+    let det = `<div class="grid" style="margin-bottom:10px">
         <div class="stat"><div class="k">Total collateral</div><div class="v">${usd(a.totalCollateralUsd)}</div></div>
         <div class="stat"><div class="k">Total debt</div><div class="v">${usd(a.totalDebtUsd)}</div></div>
-        <div class="stat"><div class="k">Current loan to value</div><div class="v">${pct(an.currentLtv, 1)}</div></div>
-        <div class="stat"><div class="k">Liquidation threshold</div><div class="v">${pct(a.liqThreshold, 1)}</div></div>
-        <div class="stat"><div class="k">Max LTV</div><div class="v">${pct(a.ltv, 1)}</div></div>
         <div class="stat"><div class="k">Aave borrow room</div><div class="v">${usd(a.availableBorrowsUsd)}</div></div>
-        <div class="stat"><div class="k">Network</div><div class="v">${esc(pos.chainName)}</div></div>
-        <div class="stat"><div class="k">Efficiency mode</div><div class="v">${pos.emode ? 'On (category ' + pos.emode + ')' : 'Off'}</div></div>
-      </div>
-      ${pos.emode ? '<div class="note">Efficiency mode is on, so Aave uses special LTV and liquidation values for this loan. The per-asset numbers below are the standard ones, but the totals above are exact.</div>' : ''}
-    </div>`;
+        <div class="stat"><div class="k">Efficiency mode</div><div class="v">${pos.emode ? 'On (category ' + pos.emode + ')' : 'Off'}</div></div></div>`;
+    if (pos.emode) det += '<div class="note" style="margin:0 0 10px">Efficiency mode is on, so Aave uses special LTV and liquidation values for this loan. The per-asset numbers below are the standard ones, but the totals are exact.</div>';
+    if (pos.collaterals.length) det += `<h3>Collateral (supplied)</h3><div class="tablewrap"><table><thead><tr><th>Asset</th><th>Amount</th><th>Value</th><th>Price</th><th>Supply APY</th><th>LTV</th><th>Liq. threshold</th><th>Used as collateral</th></tr></thead><tbody>` +
+      pos.collaterals.map(c => `<tr><td>${esc(c.symbol)}</td><td>${amt(c.amount)}</td><td>${usd(c.usd)}</td><td>${usdP(c.price)}</td><td>${pct(c.supplyApy)}</td><td>${pct(c.ltv, 1)}</td><td>${pct(c.lt, 1)}</td><td>${c.enabled ? 'Yes' : 'No'}</td></tr>`).join('') + `</tbody></table></div>`;
+    if (pos.debts.length) det += `<h3>Debt (borrowed)</h3><div class="tablewrap"><table><thead><tr><th>Asset</th><th>Amount owed</th><th>Value</th><th>Price</th><th>Borrow APR</th><th>Borrow APY</th></tr></thead><tbody>` +
+      pos.debts.map(d => `<tr><td>${esc(d.symbol)}</td><td>${amt(d.amount)}</td><td>${usd(d.usd)}</td><td>${usdP(d.price)}</td><td>${d.stableShare ? 'Stable debt' : pct(d.borrowApr)}</td><td>${d.stableShare ? 'Stable debt' : pct(d.borrowApy)}</td></tr>`).join('') +
+      `</tbody></table></div><p class="small" style="margin:10px 0 0">Borrow rates are the current variable rate, which can change any time. Amounts include interest accrued so far.</p>`;
+    html += `<details class="card" id="dBreak"${open('dBreak')}><summary>Per-asset breakdown</summary>${det}</details>`;
 
-    // Room / action card
-    if (a.totalDebtUsd > 0 || a.totalCollateralUsd > 0) {
-      let body = '';
-      if (an.borrowMore > 0) {
-        const room = a.hf > 2.6;
-        body += `<p style="margin:0 0 6px"><strong>${room ? 'Room to borrow or take gains.' : 'Room above the 2.2 target.'}</strong> You could borrow about <strong>${usd(an.borrowMoreCapped)}</strong> more and still sit at a health factor of ${TARGET_HF}.</p>`;
-        if (an.capHit) body += `<p class="small" style="margin:0 0 6px">Your exact math allows ${usd(an.borrowMore)}, but Aave's own borrow limit (LTV) caps it at ${usd(an.borrowMoreCapped)}.</p>`;
-        body += `<p class="small" style="margin:0">Another way to use the room: sell a slice of the collateral to lock in gains and repay debt. Borrowing more means more debt riding on prices, so a sharp drop hurts more.</p>`;
-      } else if (a.totalDebtUsd > 0) {
-        body += `<p style="margin:0 0 6px">To get back to a health factor of ${TARGET_HF}, repay about <strong>${usd(an.repayToTarget)}</strong> of debt (or add the equivalent value in collateral).</p>`;
-      }
-      if (body) html += `<div class="card"><h2>Borrow room and gains</h2>${body}</div>`;
-    }
-
-    // Add collateral card
-    if (a.totalDebtUsd > 0) {
-      const main = mainCollateral(pos.collaterals);
-      const rows = addCollateralRows(a, main).map(r => addRowHtml(r, main)).join('');
-      html += `<div class="card"><h2>Collateral to add for a target loan to value</h2>
-        <p class="small" style="margin:0 0 10px">Your loan to value is now <strong>${pct(an.currentLtv, 1)}</strong>. This shows how much collateral you would add to bring it down to each level.</p>
-        <div class="tablewrap"><table><thead><tr><th>Target loan to value</th><th>Add (USD)</th><th>${main ? 'Add (' + esc(main.symbol) + ')' : 'Add (asset)'}</th><th>New collateral</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <div class="row"><label class="small" for="customLtv">Your own target (%):</label><input id="customLtv" type="text" inputmode="decimal" autocomplete="off" placeholder="for example 45" value="${esc(state.customLtv)}" style="width:110px" aria-label="Custom target loan to value in percent"></div>
-        <p id="customOut" style="margin:8px 0 0" aria-live="polite"></p>
-        <p class="small" style="margin:10px 0 0">Formula: debt divided by target, minus your current collateral. ${main ? 'The ' + esc(main.symbol) + ' amount uses its current Aave oracle price (' + usdP(main.price) + '), and your largest supplied asset is used.' : ''} The health factor row uses your weighted liquidation threshold (${pct(a.liqThreshold, 1)}) divided by ${TARGET_HF}. Adding a different asset, or price moves, will change the exact amount.</p></div>`;
-    }
-
-    // Liquidation card
-    const liveColl = pos.collaterals.filter(c => c.enabled);
-    if (a.totalDebtUsd > 0 && liveColl.length) {
-      const opts = liveColl.map(c => `<option value="${esc(c.symbol)}" ${c.symbol === an.sel ? 'selected' : ''}>${esc(c.symbol)}</option>`).join('');
-      const l = an.levels[3];
-      let main;
-      if (l.status === 'ok') main = `<div class="grid" style="margin-bottom:12px">
-          <div class="stat"><div class="k">${esc(an.sel)} price now</div><div class="v">${usdP(an.selC.price)}</div></div>
-          <div class="stat"><div class="k">Liquidation price</div><div class="v">${usdP(l.price)}</div></div>
-          <div class="stat"><div class="k">Drop to liquidation</div><div class="v">${l.dropPct.toFixed(1)}%</div></div>
-          <div class="stat"><div class="k">Collateral amount</div><div class="v">${amt(an.selC.amount)}</div></div></div>`;
-      else if (l.status === 'already') main = `<p><strong>Health factor is already at or below 1.0.</strong> This position can be liquidated now.</p>`;
-      else main = `<p>${esc(an.sel)} falling on its own would not get this loan to liquidation, because the other assets cover the debt.</p>`;
-      const rows = an.levels.map(x => {
-        const name = x.h === 1 ? '1.0 (liquidation)' : String(x.h);
-        if (x.status === 'ok') return `<tr><td>${name}</td><td>${usdP(x.price)}</td><td>${x.dropPct.toFixed(1)}%</td></tr>`;
-        if (x.status === 'already') return `<tr><td>${name}</td><td colspan="2">Already reached</td></tr>`;
-        return `<tr><td>${name}</td><td colspan="2">Not reachable by this asset alone</td></tr>`;
-      }).join('');
-      html += `<div class="card"><h2>Liquidation price</h2>
-        <div class="row" style="margin:0 0 10px"><label class="small" for="selcoll">Collateral to stress test:</label><select id="selcoll" style="width:auto">${opts}</select></div>
-        ${main}
-        <div class="tablewrap"><table><thead><tr><th>Health factor</th><th>${esc(an.sel)} price</th><th>Drop from now</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <p class="small" style="margin:10px 0 0">Assumes only ${esc(an.sel)} moves and everything else stays at today's oracle prices.${an.selDebtSame ? ' You also owe ' + esc(an.sel) + ', which is included.' : ''} If you borrowed a volatile asset instead of a stablecoin, real risk is higher.</p></div>`;
-    }
-
-    // Collateral table
-    if (pos.collaterals.length) {
-      html += `<div class="card"><h2>Collateral (supplied)</h2><div class="tablewrap"><table><thead><tr><th>Asset</th><th>Amount</th><th>Value</th><th>Price</th><th>Supply APY</th><th>LTV</th><th>Liq. threshold</th><th>Used as collateral</th></tr></thead><tbody>` +
-        pos.collaterals.map(c => `<tr><td>${esc(c.symbol)}</td><td>${amt(c.amount)}</td><td>${usd(c.usd)}</td><td>${usdP(c.price)}</td><td>${pct(c.supplyApy)}</td><td>${pct(c.ltv, 1)}</td><td>${pct(c.lt, 1)}</td><td>${c.enabled ? 'Yes' : 'No'}</td></tr>`).join('') +
-        `</tbody></table></div></div>`;
-    }
-    if (pos.debts.length) {
-      html += `<div class="card"><h2>Debt (borrowed)</h2><div class="tablewrap"><table><thead><tr><th>Asset</th><th>Amount owed</th><th>Value</th><th>Price</th><th>Borrow APY</th></tr></thead><tbody>` +
-        pos.debts.map(d => `<tr><td>${esc(d.symbol)}</td><td>${amt(d.amount)}</td><td>${usd(d.usd)}</td><td>${usdP(d.price)}</td><td>${d.stableShare ? 'Stable debt' : pct(d.borrowApy)}</td></tr>`).join('') +
-        `</tbody></table></div><p class="small" style="margin:10px 0 0">Borrow APY is the current variable rate, which can change any time. Amounts include interest accrued so far.</p></div>`;
-    }
     const ae = document.activeElement;
-    const keep = ae && ae.id === 'customLtv' ? { a: ae.selectionStart, b: ae.selectionEnd } : null;
+    const keep = ae && ae.id === 'targetHF' ? { a: ae.selectionStart, b: ae.selectionEnd } : null;
     $('out').innerHTML = html;
-    const cl = $('customLtv');
-    if (cl) {
-      cl.addEventListener('input', e => { state.customLtv = e.target.value; renderCustom(); });
-      if (keep) { cl.focus(); try { cl.setSelectionRange(keep.a, keep.b); } catch (e) {} }
-    }
-    renderCustom();
-    const s = $('selcoll');
-    if (s) s.addEventListener('change', e => { state.selSym = e.target.value; render(); });
+    $('dBreak').addEventListener('toggle', e => { state.open.dBreak = e.target.open; });
+    if (ctx) wireScn(ctx, keep);
+  }
+
+  function wireScn(ctx, keep) {
+    const sl = $('scnSlider');
+    sl.addEventListener('input', () => {
+      const c = scnCtx(); if (!c) return;
+      let x = scnXFromT(state.scnMode, Number(sl.value) / 1000, c.pos, c.main);
+      if (Math.abs(x - 1) < 0.004) x = 1;
+      state.scnPrice = x === 1 ? null : c.main.price * x;
+      renderScn();
+    });
+    const down = () => { state.dragAt = Date.now(); };
+    const up = () => { state.dragAt = 0; if (state.pendingRender) render(); };
+    sl.addEventListener('pointerdown', down);
+    sl.addEventListener('touchstart', down, { passive: true });
+    ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'blur'].forEach(ev => sl.addEventListener(ev, up));
+    $('scnReset').addEventListener('click', () => { state.scnPrice = null; syncSlider(); renderScn(); });
+    $('scnSeg').addEventListener('click', e => {
+      const bt = e.target.closest('button[data-mode]');
+      if (!bt || bt.dataset.mode === state.scnMode) return;
+      state.scnMode = bt.dataset.mode; syncSlider(); renderScn();
+    });
+    const tg = $('targetHF');
+    const check = () => {
+      const bad = String(state.targetHF).trim() !== '' && parseHfInput(state.targetHF) == null;
+      $('tgtMsg').textContent = bad ? 'Enter a number from 1.05 to 10. Using ' + TARGET_HF + ' for now.' : '';
+    };
+    tg.addEventListener('input', e => { state.targetHF = e.target.value; check(); syncSlider(); renderScn(); });
+    check();
+    const as = $('scnAsset');
+    if (as) as.addEventListener('change', e => { state.selSym = e.target.value; state.scnPrice = null; render(); });
+    if (keep) { tg.focus(); try { tg.setSelectionRange(keep.a, keep.b); } catch (e) {} }
+    syncSlider(); renderScn();
   }
 
   function setStatus(msg, busy) { $('status').innerHTML = (busy ? '<span class="spin"></span>' : '') + esc(msg); }
@@ -567,7 +770,7 @@ if (typeof document !== 'undefined') {
       const pos = await fetchPosition(chainKey, addrRaw);
       if (gen !== state.gen) return; // Clear was pressed while loading
       const sig = chainKey + ':' + pos.user.toLowerCase();
-      if (sig !== state.sig) { state.selSym = null; state.prevBand = null; state.sig = sig; }
+      if (sig !== state.sig) { state.selSym = null; state.prevBand = null; state.sig = sig; state.scnPrice = null; }
       state.pos = pos;
       checkAlert(pos);
       render();
@@ -590,7 +793,7 @@ if (typeof document !== 'undefined') {
     state.gen += 1;
     clearInterval(state.timer);
     stopScan();
-    state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: state.gen, customLtv: '' };
+    state = { pos: null, selSym: null, timer: null, countdown: 60, prevBand: null, loading: false, sig: '', gen: state.gen, scnMode: 'price', scnPrice: null, targetHF: String(TARGET_HF), dragAt: 0, pendingRender: false, open: {} };
     $('addr').value = '';
     $('out').innerHTML = '';
     showError('');
